@@ -10,6 +10,7 @@ import numpy as np
 import supervision as sv
 import matplotlib.pyplot as plt
 from PIL import (Image as PILImg, ImageDraw)
+import cv2
 
 
 def apply_matplotlib_colormap(depth_pil, colormap_name='inferno'):
@@ -113,14 +114,31 @@ def annotate(image_source, boxes, logits, phrases):
     - PIL.Image: Annotated image.
     """
     try:
-        detections = sv.Detections(xyxy=boxes.cpu().numpy())
+        # detections = sv.Detections(xyxy=boxes.cpu().numpy())
+        # Deleted above line in order to create detections with dummy class_id as seen in next section
+        # Create detections with dummy class_id
+        detections = sv.Detections(
+            xyxy=boxes.cpu().numpy(),
+            class_id=np.zeros(len(boxes), dtype=int)  # Dummy class_id for all detections
+        )
+
         labels = [
             f"{phrase} {logit:.2f}"
             for phrase, logit
             in zip(phrases, logits)
         ]
         box_annotator = sv.BoxAnnotator()
-        img_pil = PILImg.fromarray(box_annotator.annotate(scene=np.array(image_source), detections=detections, labels=labels))
+
+        # Annotate the image with bounding boxes
+        scene = np.array(image_source)
+        annotated_scene = box_annotator.annotate(scene=scene, detections=detections)
+
+        # Draw the labels on the image
+        for i, (box, label) in enumerate(zip(detections.xyxy, labels)):
+            x1, y1, x2, y2 = box.astype(int)
+            cv2.putText(annotated_scene, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+        img_pil = PILImg.fromarray(annotated_scene)
         return img_pil
     
     except Exception as e:
