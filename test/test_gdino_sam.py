@@ -6,9 +6,39 @@ from absl import app, logging
 from PIL import Image as PILImg
 from robokit.utils import annotate, overlay_masks
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
+def filter(bboxes, conf_list, conf_bound, yVal ,precentWidth = 0.5, precentHeight = 0.5):
+    print("PRE FILTER")
+    print(conf_list.size(dim=0))
+    print(bboxes)            
+    for conf in conf_list:
+        print(conf)
 
+    # bboxes is a tensor of size [n,4] where every row is structured by center x center y width(%OfScreen) height(%OfScreen)
+    # Filters out boxes that are the more than half of the image in size
+    if conf_list.size(dim=0) >= 1:
+        c1 = bboxes[:,3] <= precentHeight # taller than 50% (Default)
+        c2 = bboxes[:,2] <= precentWidth # wider than 50% (Default)
+        c3 = bboxes[:,1] <= yVal
+        mask = c1 & c2 & c3
+        bboxes = bboxes[mask]
+        conf_list = conf_list[mask]
 
-def main(argv):
+    # Filters out images with detections at all
+    if conf_list.size(dim=0) == 0:
+        return bboxes, conf_list, True
+    
+    print("POST FILTER")
+    print(conf_list.size(dim=0))
+    print(bboxes)            
+    for conf in conf_list:
+        print(conf)
+
+    # Creates an upper bound for confidence
+    if any(conf >= conf_bound for conf in conf_list):
+        return bboxes, conf_list, True
+    
+    return bboxes, conf_list, False
+
     # Path to the input image
     image_path = argv[0]
     text_prompt =  'objects'
