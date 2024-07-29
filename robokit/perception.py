@@ -381,8 +381,9 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
         except Exception as e:
             self.logger.error(f"Error during image transformation for visualization: {e}")
             raise e
-    
-    def predict(self, image_pil: PILImg, det_text_prompt: str = "objects"):
+        
+    # Edited to add box_threshold and text_threshold as arguments with default value of 0.35 (Itay Kadosh)
+    def predict(self, image_pil: PILImg, det_text_prompt: str = "objects", box_threshold = 0.35, text_threshold=0.35):
         """
         Get predictions for a given image using GroundingDINO model.
         Paper: https://arxiv.org/abs/2303.05499
@@ -399,7 +400,7 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
         """
         try:
             _, image_tensor = self.image_transform_grounding(image_pil)
-            bboxes, conf, phrases = predict(self.model, image_tensor, det_text_prompt, box_threshold=0.25, text_threshold=0.25, device=self.device)
+            bboxes, conf, phrases = predict(self.model, image_tensor, det_text_prompt, box_threshold=box_threshold, text_threshold=text_threshold, device=self.device)
             return bboxes, phrases, conf        
         except Exception as e:
             self.logger.error(f"Error during model prediction: {e}")
