@@ -136,7 +136,7 @@ def main(root_dir):
     # segment_pub = rospy.Publisher('segments', Float32MultiArray, queue_size=10)
 
     images = [os.path.join(input_path, f) for f in os.listdir(input_path)]
-    text_prompt = 'table . chair . door .'
+    text_prompt = 'table'
 
     try:
         logging.info("Initialize object detectors")

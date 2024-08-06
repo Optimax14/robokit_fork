@@ -381,7 +381,7 @@ class GroundingDINOObjectPredictor(ObjectPredictor):
         except Exception as e:
             self.logger.error(f"Error during image transformation for visualization: {e}")
             raise e
-        
+    
     # Edited to add box_threshold and text_threshold as arguments with default value of 0.35 (Itay Kadosh)
     def predict(self, image_pil: PILImg, det_text_prompt: str = "objects", box_threshold = 0.35, text_threshold=0.35):
         """
