@@ -260,3 +260,141 @@ def filter_large_boxes(boxes, w, h, threshold=0.5):
     except Exception as e:
         logging.error(f"Error filtering large boxes: {e}")
         raise e
+
+
+def save_mask(masks, output_path, image_path, phrases):
+    """
+    Saves masks from the SAM predict function and then saves 
+    them into seperate folders for each class of each 
+    image sent through the pipeline.
+
+    Parameters: 
+    - masks (torch.Tensor): Tensor of shape [N, H, W] holding all masks 
+        of the given image.
+    - output_path (str): Path to the output directory where a folder called (segments) will be
+        created and masks will be saved.
+    - image_path (str): Path to the input image (image that the masks were created from).
+    - phrases (list): List of phrases corresponding to each mask.
+    
+    Returns:
+    - None (creates a folder in the output_path which will contain subfolders
+            corresponding to the image number and subfolders corresponding 
+            to the detected class)
+    """
+
+
+    try:
+        mask_arrays = masks.cpu().numpy()
+        image_name = os.path.splitext(os.path.basename(image_path))[0]
+
+        image_output_path = os.path.join(output_path, image_name)
+        os.makedirs(image_output_path, exist_ok=True)
+
+        if image_name.endswith('_color'):
+            image_name = image_name[:-6]
+
+        prompt_mask_counts = {}
+
+        for i, mask in enumerate(mask_arrays):
+            mask = mask[0]
+
+            mask = mask.astype(np.float32)
+            mask = (mask - mask.min()) / (mask.max() - mask.min()) * 255.0
+            mask = mask.astype(np.uint8)
+
+            img = PILImg.fromarray(mask)
+            phrase = phrases[i]
+
+            if phrase not in prompt_mask_counts:
+                prompt_mask_counts[phrase] = 0
+
+            prompt_output_path = os.path.join(image_output_path, phrase)
+            os.makedirs(prompt_output_path, exist_ok=True)
+
+            mask_index = prompt_mask_counts[phrase]
+            mask_filename = f"mask_{phrase}_{mask_index}.png"
+            mask_image_path = os.path.join(prompt_output_path, mask_filename)
+
+            img.save(mask_image_path)
+            prompt_mask_counts[phrase] += 1
+
+    except Exception as e:
+        logging.error(f"Error saving masks: {e}")
+        raise e
+    
+
+def filter(bboxes, conf_list, phrases ,conf_bound, yVal, precentWidth=0.5, precentHeight=0.5, precentArea=0.05):
+
+    """
+    Filters out false positives from detections:
+    - Noise from floor 
+    - Detections of the entire image (Very large, false detections)
+    - False detections of doors (light glare, windows, etc.)
+
+    Parameters:
+    - bboxes (torch.Tensor): Tensor of bounding boxes with shape [N, 4], where each row is structured by
+                             (center x, center y, width (% of screen), height (% of screen)).
+    - conf_list (torch.Tensor): Tensor of confidence scores corresponding to each bounding box.
+    - phrases (list): List of phrases corresponding to each bounding box.
+    - conf_bound (float): Confidence score upper bound for filtering.
+        range: 0.0-1.0
+    - yVal (float): Y-coordinate lower bound for filtering (if the bboxes center y coordinate is lower than yVal it gets removed) (% of screen) 
+        range: 0.0-1.0
+        0 is top 1 is bottom
+    - precentWidth (float, optional): Maximum width of bounding boxes as a percentage of image width. Default is 0.5 (50%).
+        range: 0.0-1.0
+    - precentHeight (float, optional): Maximum height of bounding boxes as a percentage of image height. Default is 0.5 (50%).
+        range: 0.0-1.0
+    - precentArea (float, optional): Minimum area of bounding boxes as a percentage of total image area. Default is 0.05 (5%).
+        range: 0.0-1.0
+
+    Returns:
+    - bboxes (torch.Tensor): Filtered bounding boxes
+    - conf_list (torch.Tensor): Filtered confidence scores
+    - phrases (list): Filtered list of phrases
+    - flag (boolean): indicating if there are any detections left after filter
+            false = no detections left (breaks loop)
+            true =  some detections left (continuted) 
+
+    """
+
+    IMAGE_WIDTH = 640
+    IMAGE_HEIGHT = 480
+    IMAGE_AREA = IMAGE_WIDTH * IMAGE_HEIGHT
+    MIN_BOX_AREA = precentArea * IMAGE_AREA 
+
+    phrases_np = np.array(phrases)
+
+    if conf_list.size(dim=0) >= 1:
+        c1 = bboxes[:, 3] <= precentHeight  # taller than 50% (Default)
+        c2 = bboxes[:, 2] <= precentWidth  # wider than 50% (Default)
+        c3 = bboxes[:, 1] <= yVal
+        
+        # Calculate area of each bounding box and filter out those with area < 5% of total image (Default)
+        box_areas = (bboxes[:, 2] * IMAGE_WIDTH) * (bboxes[:, 3] * IMAGE_HEIGHT)
+        c4 = box_areas >= MIN_BOX_AREA
+
+        mask = c1 & c2 & c3 & c4
+
+        # specific filter for doors
+        door_indices = np.where(phrases_np == 'door')[0]
+        for i in door_indices:
+            width = bboxes[i, 2] * IMAGE_WIDTH
+            height = bboxes[i, 3] * IMAGE_HEIGHT
+            if height / width < 1.7 and box_areas[i] < 0.04 * IMAGE_AREA:
+                mask[i] = False
+
+        bboxes = bboxes[mask]
+        conf_list = conf_list[mask]
+
+        phrases_np = phrases_np[mask.cpu().numpy()]
+
+    # Filters out images with detections at all
+    if conf_list.size(dim=0) == 0:
+        return bboxes, conf_list, phrases_np.tolist() ,True
+
+    # Creates an upper bound for confidence
+    if any(conf >= conf_bound for conf in conf_list):
+        return bboxes, conf_list, phrases_np.tolist() ,True
+
+    return bboxes, conf_list, phrases_np.tolist() ,False
