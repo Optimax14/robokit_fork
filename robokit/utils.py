@@ -287,11 +287,11 @@ def save_mask(masks, output_path, image_path, phrases):
         mask_arrays = masks.cpu().numpy()
         image_name = os.path.splitext(os.path.basename(image_path))[0]
 
-        image_output_path = os.path.join(output_path, image_name)
-        os.makedirs(image_output_path, exist_ok=True)
-
         if image_name.endswith('_color'):
             image_name = image_name[:-6]
+
+        image_output_path = os.path.join(output_path, image_name)
+        os.makedirs(image_output_path, exist_ok=True)
 
         prompt_mask_counts = {}
 
@@ -381,7 +381,7 @@ def filter(bboxes, conf_list, phrases ,conf_bound, yVal, precentWidth=0.5, prece
         for i in door_indices:
             width = bboxes[i, 2] * IMAGE_WIDTH
             height = bboxes[i, 3] * IMAGE_HEIGHT
-            if height / width < 1.7 and box_areas[i] < 0.04 * IMAGE_AREA:
+            if height / width < 1.7 or box_areas[i] < 0.04 * IMAGE_AREA:
                 mask[i] = False
 
         bboxes = bboxes[mask]
