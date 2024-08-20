@@ -6,7 +6,7 @@
 
 
 # 2024 modified by Itay Kadosh.
-# Added filtering functionality, taking images from a local directory, and publishing results to be listened to through a subscriber (test_listener.py)
+# Added filtering functionality, taking images from a local directory, and saving masks into specific subfolders
 # Work done while being at the Intelligent Robotics and Vision Lab at the University of Texas, Dallas
 
 
@@ -15,9 +15,6 @@ from PIL import (Image as PILImg, ImageDraw)
 from robokit.utils import annotate, overlay_masks, draw_mask, save_mask, filter
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 import os
-import time
-import numpy as np
-import torch
 import sys
 
 
@@ -27,7 +24,9 @@ def main(argv):
     output_path = os.path.join(root_dir, "segments")
 
     images = [os.path.join(input_path, f) for f in os.listdir(input_path)]
-    text_prompt = 'chair . table . door .'
+    # Prompt structure for multiple prompts is as follows:
+    # 'table . door . chair .' (period after every word)
+    text_prompt = 'ADD YOUR PROMPT' 
 
     try:
         logging.info("Initialize object detectors")
@@ -40,7 +39,8 @@ def main(argv):
             image_pil = PILImg.open(image_path).convert("RGB")
 
             logging.info("GDINO: Predict bounding boxes, phrases, and confidence scores")
-            bboxes, phrases, gdino_conf = gdino.predict(image_pil, text_prompt, 0.4, 0.4)
+            # Last two parameters are box_threshold and text_threshold
+            bboxes, phrases, gdino_conf = gdino.predict(image_pil, text_prompt, 0.55, 0.55)
 
             bboxes, gdino_conf, phrases ,flag = filter(bboxes, gdino_conf, phrases, 1, 0.8, 0.8, 0.8, 0.01)
             if flag:
@@ -50,7 +50,6 @@ def main(argv):
             w, h = image_pil.size  # Get image width and height
             # Scale bounding boxes to match the original image size
             image_pil_bboxes = gdino.bbox_to_scaled_xyxy(bboxes, w, h)
-            # print(image_pil_bboxes)
 
             logging.info("SAM prediction")
             image_pil_bboxes, masks = SAM.predict(image_pil, image_pil_bboxes)
