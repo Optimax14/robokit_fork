@@ -323,7 +323,7 @@ def save_mask(masks, output_path, image_path, phrases):
         raise e
     
 
-def filter(bboxes, conf_list, phrases ,conf_bound, yVal, precentWidth=0.5, precentHeight=0.5, precentArea=0.05):
+def filter(bboxes, conf_list, phrases ,conf_bound, yVal, precentWidth=0.5, precentHeight=0.5, precentArea=0.05, filterChoice=True):
 
     """
     Filters out false positives from detections:
@@ -347,6 +347,8 @@ def filter(bboxes, conf_list, phrases ,conf_bound, yVal, precentWidth=0.5, prece
         range: 0.0-1.0
     - precentArea (float, optional): Minimum area of bounding boxes as a percentage of total image area. Default is 0.05 (5%).
         range: 0.0-1.0
+    - filterChoice (bool, optional): Whether to apply filtering logic. Default is True so the filter runs by default. By changing to False the filter
+        not apply to the detections.
 
     Returns:
     - bboxes (torch.Tensor): Filtered bounding boxes
@@ -358,43 +360,47 @@ def filter(bboxes, conf_list, phrases ,conf_bound, yVal, precentWidth=0.5, prece
 
     """
 
-    IMAGE_WIDTH = 640
-    IMAGE_HEIGHT = 480
-    IMAGE_AREA = IMAGE_WIDTH * IMAGE_HEIGHT
-    MIN_BOX_AREA = precentArea * IMAGE_AREA 
+    if filterChoice:
+        IMAGE_WIDTH = 640
+        IMAGE_HEIGHT = 480
+        IMAGE_AREA = IMAGE_WIDTH * IMAGE_HEIGHT
+        MIN_BOX_AREA = precentArea * IMAGE_AREA 
 
-    phrases_np = np.array(phrases)
+        phrases_np = np.array(phrases)
 
-    if conf_list.size(dim=0) >= 1:
-        c1 = bboxes[:, 3] <= precentHeight  # taller than 50% (Default)
-        c2 = bboxes[:, 2] <= precentWidth  # wider than 50% (Default)
-        c3 = bboxes[:, 1] <= yVal
-        
-        # Calculate area of each bounding box and filter out those with area < 5% of total image (Default)
-        box_areas = (bboxes[:, 2] * IMAGE_WIDTH) * (bboxes[:, 3] * IMAGE_HEIGHT)
-        c4 = box_areas >= MIN_BOX_AREA
+        if conf_list.size(dim=0) >= 1:
+            c1 = bboxes[:, 3] <= precentHeight  # taller than 50% (Default)
+            c2 = bboxes[:, 2] <= precentWidth  # wider than 50% (Default)
+            c3 = bboxes[:, 1] <= yVal
+            
+            # Calculate area of each bounding box and filter out those with area < 5% of total image (Default)
+            box_areas = (bboxes[:, 2] * IMAGE_WIDTH) * (bboxes[:, 3] * IMAGE_HEIGHT)
+            c4 = box_areas >= MIN_BOX_AREA
 
-        mask = c1 & c2 & c3 & c4
+            mask = c1 & c2 & c3 & c4
 
-        # specific filter for doors
-        door_indices = np.where(phrases_np == 'door')[0]
-        for i in door_indices:
-            width = bboxes[i, 2] * IMAGE_WIDTH
-            height = bboxes[i, 3] * IMAGE_HEIGHT
-            if height / width < 1.7 or box_areas[i] < 0.04 * IMAGE_AREA:
-                mask[i] = False
+            # specific filter for doors
+            door_indices = np.where(phrases_np == 'door')[0]
+            for i in door_indices:
+                width = bboxes[i, 2] * IMAGE_WIDTH
+                height = bboxes[i, 3] * IMAGE_HEIGHT
+                if height / width < 1.7 or box_areas[i] < 0.04 * IMAGE_AREA:
+                    mask[i] = False
 
-        bboxes = bboxes[mask]
-        conf_list = conf_list[mask]
+            bboxes = bboxes[mask]
+            conf_list = conf_list[mask]
 
-        phrases_np = phrases_np[mask.cpu().numpy()]
+            phrases_np = phrases_np[mask.cpu().numpy()]
 
-    # Filters out images with detections at all
-    if conf_list.size(dim=0) == 0:
-        return bboxes, conf_list, phrases_np.tolist() ,True
+        # Filters out images with detections at all
+        if conf_list.size(dim=0) == 0:
+            return bboxes, conf_list, phrases_np.tolist() ,True
 
-    # Creates an upper bound for confidence
-    if any(conf >= conf_bound for conf in conf_list):
-        return bboxes, conf_list, phrases_np.tolist() ,True
+        # Creates an upper bound for confidence
+        if any(conf >= conf_bound for conf in conf_list):
+            return bboxes, conf_list, phrases_np.tolist() ,True
 
-    return bboxes, conf_list, phrases_np.tolist() ,False
+        return bboxes, conf_list, phrases_np.tolist() ,False
+
+    # If filterChoice is False, skip the filtering. Flag is returned as True if there are detections
+    return bboxes, conf_list, phrases, conf_list(dim=0) > 0
