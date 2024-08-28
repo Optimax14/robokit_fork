@@ -20,12 +20,6 @@ def main(argv):
     input_path = os.path.join(root_dir, "color")
     
     # List of prompts
-    '''prompts = [
-        "door", "person", "shelves", "cabinet", "exit sign", "fire extinguisher", "open door", 
-        "closed door", "glass", "mirror", "Trash bin", "bin", "hallway", 
-        "water fountain", "filter", "bottle", "cup", "mug", "bench", 
-        "laptop", "bag"
-    ]'''
 
     prompt = "table . door . chair."
     images = [os.path.join(input_path, f) for f in os.listdir(input_path)]
@@ -37,9 +31,7 @@ def main(argv):
 
         #for prompt in prompts:
         # logging.info(f"Processing prompt: {prompt}")
-        prompt_folder = os.path.join(root_dir, prompt)
-        os.makedirs(prompt_folder, exist_ok=True)
-        output_path = os.path.join(prompt_folder, "segments")
+        output_path = os.path.join(root_dir, "segments")
 
         for image_path in images:
             logging.info(f"Processing image: {image_path}")
@@ -62,7 +54,7 @@ def main(argv):
             logging.info("Annotate and save the image with bounding boxes, confidence scores, and labels")
             bbox_annotated_pil = annotate(overlay_masks(image_pil, masks), image_pil_bboxes, gdino_conf, phrases)
 
-            segments_color_path = os.path.join(prompt_folder, "segments_color")
+            segments_color_path = os.path.join(root_dir, "segments_color")
             os.makedirs(segments_color_path, exist_ok=True)
 
             image_name = os.path.splitext(os.path.basename(image_path))[0]
