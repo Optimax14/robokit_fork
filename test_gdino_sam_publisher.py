@@ -4,11 +4,9 @@
 # Work done while being at the Intelligent Robotics and Vision Lab at the University of Texas, Dallas
 # Please check the licenses of the respective works utilized here before using this script.
 
-
 # 2024 modified by Itay Kadosh.
 # Added filtering functionality, taking images from a local directory, and saving masks into specific subfolders
 # Work done while being at the Intelligent Robotics and Vision Lab at the University of Texas, Dallas
-
 
 from absl import app, logging
 from PIL import (Image as PILImg, ImageDraw)
@@ -17,47 +15,54 @@ from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPred
 import os
 import sys
 
-
 def main(argv): 
     root_dir = argv
     input_path = os.path.join(root_dir, "color")
-    output_path = os.path.join(root_dir, "segments")
+    
+    # List of prompts
+    '''prompts = [
+        "door", "person", "shelves", "cabinet", "exit sign", "fire extinguisher", "open door", 
+        "closed door", "glass", "mirror", "Trash bin", "bin", "hallway", 
+        "water fountain", "filter", "bottle", "cup", "mug", "bench", 
+        "laptop", "bag"
+    ]'''
 
+    prompt = "table . door . chair."
     images = [os.path.join(input_path, f) for f in os.listdir(input_path)]
-    # Prompt structure for multiple prompts is as follows:
-    # 'table . door . chair .' (period after every word)
-    text_prompt = 'ADD YOUR PROMPT' 
 
     try:
         logging.info("Initialize object detectors")
         gdino = GroundingDINOObjectPredictor()
         SAM = SegmentAnythingPredictor()
 
-        for image_path in images:
+        #for prompt in prompts:
+        # logging.info(f"Processing prompt: {prompt}")
+        prompt_folder = os.path.join(root_dir, prompt)
+        os.makedirs(prompt_folder, exist_ok=True)
+        output_path = os.path.join(prompt_folder, "segments")
 
-            logging.info("Open the image and convert to RGB format")
+        for image_path in images:
+            logging.info(f"Processing image: {image_path}")
             image_pil = PILImg.open(image_path).convert("RGB")
 
             logging.info("GDINO: Predict bounding boxes, phrases, and confidence scores")
-            # Last two parameters are box_threshold and text_threshold
-            bboxes, phrases, gdino_conf = gdino.predict(image_pil, text_prompt, 0.55, 0.55)
+            bboxes, phrases, gdino_conf = gdino.predict(image_pil, prompt, 0.55, 0.55)
 
-            bboxes, gdino_conf, phrases ,flag = filter(bboxes, gdino_conf, phrases, 1, 0.8, 0.8, 0.8, 0.01)
+            bboxes, gdino_conf, phrases, flag = filter(bboxes, gdino_conf, phrases, 1, 0.8, 0.8, 0.8, 0.01, True)
             if flag:
                 continue
 
             logging.info("GDINO post processing")
             w, h = image_pil.size  # Get image width and height
-            # Scale bounding boxes to match the original image size
             image_pil_bboxes = gdino.bbox_to_scaled_xyxy(bboxes, w, h)
 
             logging.info("SAM prediction")
             image_pil_bboxes, masks = SAM.predict(image_pil, image_pil_bboxes)
 
-            logging.info("Annotate the scaled image with bounding boxes, confidence scores, and labels, and display")
+            logging.info("Annotate and save the image with bounding boxes, confidence scores, and labels")
             bbox_annotated_pil = annotate(overlay_masks(image_pil, masks), image_pil_bboxes, gdino_conf, phrases)
 
-            segments_color_path = os.path.join(root_dir, "segments_color")
+            segments_color_path = os.path.join(prompt_folder, "segments_color")
             os.makedirs(segments_color_path, exist_ok=True)
 
             image_name = os.path.splitext(os.path.basename(image_path))[0]
