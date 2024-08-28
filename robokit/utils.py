@@ -394,13 +394,16 @@ def filter(bboxes, conf_list, phrases ,conf_bound, yVal, precentWidth=0.5, prece
 
         # Filters out images with detections at all
         if conf_list.size(dim=0) == 0:
-            return bboxes, conf_list, phrases_np.tolist() ,True
+            return bboxes, conf_list, phrases_np.tolist(), True
 
         # Creates an upper bound for confidence
         if any(conf >= conf_bound for conf in conf_list):
-            return bboxes, conf_list, phrases_np.tolist() ,True
+            return bboxes, conf_list, phrases_np.tolist(), True 
 
-        return bboxes, conf_list, phrases_np.tolist() ,False
+        return bboxes, conf_list, phrases_np.tolist(), False
 
-    # If filterChoice is False, skip the filtering. Flag is returned as True if there are detections
-    return bboxes, conf_list, phrases, conf_list(dim=0) > 0
+    # If filterChoice is False, skip the filtering. Flag is returned as False if there are detections
+    if not filterChoice:
+        if conf_list.size(dim=0) == 0:
+            return bboxes, conf_list, phrases, True
+        return bboxes, conf_list, phrases, False
