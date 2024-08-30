@@ -262,7 +262,7 @@ def filter_large_boxes(boxes, w, h, threshold=0.5):
         raise e
 
 
-def save_mask(masks, output_path, image_path, phrases):
+def save_mask(masks, output_path, image_path, phrases, conf):
     """
     Saves masks from the SAM predict function and then saves 
     them into seperate folders for each class of each 
@@ -304,6 +304,7 @@ def save_mask(masks, output_path, image_path, phrases):
 
             img = PILImg.fromarray(mask)
             phrase = phrases[i]
+            conf_ =  conf[i]
 
             if phrase not in prompt_mask_counts:
                 prompt_mask_counts[phrase] = 0
@@ -312,7 +313,7 @@ def save_mask(masks, output_path, image_path, phrases):
             os.makedirs(prompt_output_path, exist_ok=True)
 
             mask_index = prompt_mask_counts[phrase]
-            mask_filename = f"mask_{phrase}_{mask_index}.png"
+            mask_filename = f"mask_{phrase}_{mask_index}_{conf_}.png"
             mask_image_path = os.path.join(prompt_output_path, mask_filename)
 
             img.save(mask_image_path)
