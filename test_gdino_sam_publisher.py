@@ -31,6 +31,9 @@ def main(argv):
 
         #for prompt in prompts:
         # logging.info(f"Processing prompt: {prompt}")
+        prompt_folder = os.path.join(root_dir, prompt)
+        os.makedirs(prompt_folder, exist_ok=True)
+
         output_path = os.path.join(root_dir, "segments")
 
         for image_path in images:
@@ -61,7 +64,7 @@ def main(argv):
             annotated_image_path = os.path.join(segments_color_path, f"{image_name}.png")
             bbox_annotated_pil.save(annotated_image_path)
 
-            save_mask(masks, output_path, image_path, phrases)
+            save_mask(masks, output_path, image_path, phrases, gdino_conf)
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
