@@ -13,7 +13,7 @@ import ros_numpy
 
 from matplotlib import pyplot as plt
 from sensor_msgs.msg import Image, CameraInfo
-from robokit.ObjDetection import GroundingDINOObjectPredictor, SegmentAnythingPredictor
+from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes
 
 lock = threading.Lock()
@@ -25,7 +25,8 @@ from utils import (
     is_nearby_in_map,
     read_and_visualize_graph,
     read_graph_json,
-    save_graph_json
+    save_graph_json,
+    denormalize_depth_image
 )
 
 
@@ -67,7 +68,7 @@ class robokitRealtime:
             rgb_frame_id = self.listener.rgb_frame_id
             rgb_frame_stamp = self.listener.rgb_frame_stamp
             RT_camera, RT_base = self.listener.RT_camera, self.listener.RT_base
-
+        # depth_img = denormalize_depth_image(depth_image=depth_img, max_depth=20)
         print("===========================================")
 
         # bgr image
@@ -173,4 +174,4 @@ if __name__ == "__main__":
         robokit_instance.run_network()
     print(f"closing script! saving graph")
     save_graph_json(robokit_instance.graph, file="graph_updated.json")
-    read_and_visualize_graph(on_map=True, catgeories=['door', 'chair','table'], graph=robokit_instance.graph)
+    read_and_visualize_graph("map.png","map.yaml", on_map=True, catgeories=['door', 'chair','table'], graph=robokit_instance.graph)
