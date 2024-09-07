@@ -101,6 +101,50 @@ def denormalize_depth_image(depth_image, max_depth):
     # print(f"max {depth_array.max()}")
     return depth_array.astype(np.float32)
 
+def get_fov_points_in_baselink(depth_array, RT_camera):
+        mask1 = np.isnan(depth_array)
+        depth_array[mask1] = 0.0
+        xyz_array = compute_xyz(
+            depth_array, fx, fy, px, py, depth_array.shape[0], depth_array.shape[1]
+        )
+        xyz_array = xyz_array.reshape((-1, 3))
+
+        mask = ~(np.all(xyz_array == [0.0, 0.0, 0.0], axis=1))
+        xyz_array = xyz_array[mask]
+
+        xyz_base = np.dot(RT_camera[:3, :3], xyz_array.T).T
+        xyz_base += RT_camera[:3, 3]
+
+        min_x = np.min(xyz_base[:,0])
+        max_x = np.max(xyz_base[:,0])
+        min_y = np.min(xyz_base[:,1])
+        max_y = np.max(xyz_base[:,1])
+
+        return [[0,0,0],[max_x,min_y,0], [max_x, max_y,0]]
+
+def get_fov_points_in_map(depth_array, RT_camera, RT_base):
+        mask1 = np.isnan(depth_array)
+        depth_array[mask1] = 0.0
+        xyz_array = compute_xyz(
+            depth_array, fx, fy, px, py, depth_array.shape[0], depth_array.shape[1]
+        )
+        xyz_array = xyz_array.reshape((-1, 3))
+
+        mask = ~(np.all(xyz_array == [0.0, 0.0, 0.0], axis=1))
+        xyz_array = xyz_array[mask]
+
+        xyz_base = np.dot(RT_camera[:3, :3], xyz_array.T).T
+        xyz_base += RT_camera[:3, 3]
+
+        min_x = np.min(xyz_base[:,0])
+        max_x = np.max(xyz_base[:,0])
+        min_y = np.min(xyz_base[:,1])
+        max_y = np.max(xyz_base[:,1])
+
+        points_baselink = [[0,0,0],[max_x,min_y,0], [max_x, max_y,0]]
+        points_map = np.dot(RT_base[:3,:3], np.array(points_baselink).T).T + RT_base[:3,3]
+
+        return points_map.tolist()
 
 def pose_in_map_frame(RT_camera, RT_base, depth_array, segment=None):
     if segment is not None:
