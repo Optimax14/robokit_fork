@@ -51,6 +51,8 @@ class robokitRealtime:
         self.text_prompt = "table . door . chair ."
         self.gdino = GroundingDINOObjectPredictor()
         self.SAM = SegmentAnythingPredictor()
+        self.threshold = {"table": 1.3, "chair":0.5
+                          , "door": 1}
 
         # self.label_pub = rospy.Publisher("seg_label_refined", Image, queue_size=10)
         # self.score_pub = rospy.Publisher("seg_score", Image, queue_size=10)
@@ -159,7 +161,7 @@ class robokitRealtime:
             if fov.contains(point):
                 if len(detected_poses[data["category"]]) ==0:
                     nodes_in_fov[node] = data["category"]
-                elif np.any(np.linalg.norm(np.array(detected_poses[data["category"]])-np.array(pose_), axis =1)) < 1.3:
+                elif np.any(np.linalg.norm(np.array(detected_poses[data["category"]])-np.array(pose_), axis =1)) < self.threshold[data["category"]]:
                     # print(f"node present")
                     continue
                 else:
@@ -198,7 +200,7 @@ class robokitRealtime:
                 continue
             # self.semantic_poses[phrases[i]], is_nearby = is_nearby_in_map(self.semantic_poses[phrases[i]], pose)
             self.pose_list[phrases[i]], _is_nearby = is_nearby_in_map(
-                        self.pose_list[phrases[i]], pose, threshold=1
+                        self.pose_list[phrases[i]], pose, threshold=self.threshold[phrases[i]]
                     )
             if not _is_nearby:
                 print(f"adding node")
