@@ -18,6 +18,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from robokit.perception import GroundingDINOObjectPredictor, SegmentAnythingPredictor
 from robokit.utils import annotate, overlay_masks, combine_masks, filter_large_boxes, filter
 from shapely.geometry import Point, Polygon
+from std_msgs.msg import Int32
 
 lock = threading.Lock()
 from listener import ImageListener
@@ -60,7 +61,12 @@ class robokitRealtime:
         # self.read_semantic_data()
         self.graph = read_graph_json("graph.json")
         self.pose_list = {"table":[], "chair":[], "door":[]}
+        self.pause = 0
+        rospy.Subscriber("/yes_no", Int32, self.pause_callback)
         time.sleep(5)
+
+    def pause_callback(self, data):
+        self.pause = data.data
 
     # def read_semantic_data(self):
     #     self.graph = read_graph_json()
@@ -273,8 +279,11 @@ if __name__ == "__main__":
     robokit_instance = robokitRealtime()
     iter_= 0
     while not rospy.is_shutdown():
-        robokit_instance.run_network(iter_=iter_)
-        iter_ += 1
+        if robokit_instance.pause == 0:
+            robokit_instance.run_network(iter_=iter_)
+            iter_ += 1
+        else:
+            input("continue robokit????\n\n")
     print(f"closing script! saving graph")
     save_graph_json(robokit_instance.graph, file="graph_updated.json")
     read_and_visualize_graph("map.png","map.yaml", on_map=True, catgeories=['door', 'chair','table'], graph=robokit_instance.graph)
